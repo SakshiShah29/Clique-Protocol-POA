@@ -43,8 +43,32 @@ const defaultNodeSchema = new mongoose.Schema({
 
 const DefaultNode = mongoose.model("DefaultNode", defaultNodeSchema);
 
+// Define a schema for items
+const itemSchema = new mongoose.Schema({
+  itemId: {
+    type: Number,
+    required: true,
+  },
+  quantity: {
+    type: Number,
+    required: true,
+  },
+});
+
+// Define a schema for nodes
+const nodestoitem = new mongoose.Schema({
+  address: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  items: [itemSchema], // Embed the item schema as an array within the node schema
+});
+
+const nodetoitem = mongoose.model("AddresstoItem", nodestoitem);
 module.exports = {
   connectToMongoDB,
   Sealer,
   DefaultNode,
+  nodestoitem
 };

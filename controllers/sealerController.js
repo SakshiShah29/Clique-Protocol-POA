@@ -1,18 +1,16 @@
-const { connectToMongoDB, Sealer, DefaultNode } = require("./setupMongoDB");
-const { default: mongoose } = require("mongoose");
+// controllers/sealerController.js
+const { connectToMongoDB, Sealer, DefaultNode } = require("../setupMongoDB");
 const axios = require("axios");
 const Web3 = require("web3");
 
-async function getCurrentTimestamp() {
-  // Get the current timestamp in seconds
-  const currentTimestamp = Date.now();
-  console.log(currentTimestamp)
-  return currentTimestamp;
-}
-
-const contractAbi = require("./ProposalTimeABI.json"); // Replace with your ABI file
-const contractAddress = "0x8Ada3ea70b022040FeD256F3184C60b07EddA31b";
-async function proposeAndStoreApprovedSealer(sealerAddressToApprove) {
+const contractAbi = require("../ProposalTimeABI.json");
+const { default: mongoose } = require("mongoose");
+const contractAddress = "0x36aDeb899aaCb4d58079e3aFf34C33b50897eC9E";
+const parentNodeAddress = "0xd136A41Cdb7deBCa065A313Eab6D83B1d9f78B81";
+async function proposeAndStoreApprovedSealer(req, res) {
+  console.log("Request:", req.body);
+  const sealerAddressToApprove = req.body.sealerAddressToApprove;
+  const sealerNodeUrl = req.body.nodeUrl;
   try {
     // Fetch default node URLs from MongoDB
     await connectToMongoDB();
@@ -21,7 +19,9 @@ async function proposeAndStoreApprovedSealer(sealerAddressToApprove) {
 
     if (defaultNodes.length === 0) {
       console.error("No default nodes found in MongoDB.");
-      return;
+      return res
+        .status(500)
+        .json({ error: "No default nodes found in MongoDB." });
     }
 
     // Use axios to make JSON-RPC calls to all nodes to propose the new sealer
@@ -53,15 +53,7 @@ async function proposeAndStoreApprovedSealer(sealerAddressToApprove) {
         };
 
         try {
-
-          const currentTimestamp = await getCurrentTimestamp();
           // Start the proposal duration for the authorized node
-          await contract.methods
-            .startNodeProposalDuration(defaultNode.address, currentTimestamp)
-            .send({ from: defaultNode.address });
-          console.log(
-            `Authorization and proposal duration started for ${defaultNode.address}`
-          );
 
           const response = await axios.post(defaultNode.nodeUrl, rpcData);
           console.log(
@@ -69,18 +61,14 @@ async function proposeAndStoreApprovedSealer(sealerAddressToApprove) {
             response.data.result
           );
           return response.data.result;
-          
-
-          // // Add the proposed node to the smart contract
-          // await contract.methods.addNode(sealerAddressToApprove, true).send({ from: node1Address });
-          // console.log(`Node added to the smart contract: ${sealerAddressToApprove}`);
         } catch (error) {
-          console.error(`Error proposing on node ${defaultNode.nodeUrl}:`, error.message);
+          console.error(
+            `Error proposing on node ${defaultNode.nodeUrl}:`,
+            error.message
+          );
         }
       } else {
-        console.log(
-          "The proposal time is over, you need to wait until proposal starts!"
-        );
+        console.log("The node is not authorized to propose!");
       }
     });
 
@@ -94,8 +82,16 @@ async function proposeAndStoreApprovedSealer(sealerAddressToApprove) {
     );
 
     if (isApprovedByAllNodes) {
+      const web3 = new Web3("http://localhost:8501");
+      const contract = new web3.eth.Contract(contractAbi, contractAddress);
+      const addingNode = await contract.methods
+        .addNode(sealerAddressToApprove, true)
+        .send({ from: parentNodeAddress });
+      console.log(addingNode);
+      console.log(
+        `${sealerAddressToApprove} added by Parent node in the blockchain!`
+      );
       await connectToMongoDB();
-
       // Add the new node to MongoDB
       const newSealer = new Sealer({
         address: sealerAddressToApprove,
@@ -108,21 +104,24 @@ async function proposeAndStoreApprovedSealer(sealerAddressToApprove) {
       // Add the new node as a default node
       const defaultNode = new DefaultNode({
         address: sealerAddressToApprove,
-
-        nodeUrl: "http://localhost:8504",
+        nodeUrl: sealerNodeUrl,
       });
 
       const defaultnodeToadd = await defaultNode.save();
-      console.log("default node stored in MongoDB Atlas:", defaultnodeToadd);
+      console.log("Default node stored in MongoDB Atlas:", defaultnodeToadd);
+      res.status(200).json({ message: "Sealer proposal successful" });
     } else {
       console.log("Sealer proposal was not approved by all nodes.");
+      res
+        .status(500)
+        .json({ error: "Sealer proposal was not approved by all nodes." });
     }
   } catch (error) {
     console.error("Error:", error);
-  } finally {
-    mongoose.disconnect();
+    res.status(500).json({ error: "Internal server error" });
   }
 }
 
-const sealerAddressToApprove = "0x11459dB833C68c7852D126d4907a9a49150126fE";
-proposeAndStoreApprovedSealer(sealerAddressToApprove);
+module.exports = {
+  proposeAndStoreApprovedSealer,
+};
