@@ -1,12 +1,13 @@
-// controllers/sealerController.js
 const { connectToMongoDB, Sealer, DefaultNode } = require("../setupMongoDB");
 const axios = require("axios");
 const Web3 = require("web3");
-
+require("dotenv").config();
+const CryptoJS = require("crypto-js");
 const contractAbi = require("../ProposalTimeABI.json");
 const { default: mongoose } = require("mongoose");
-const contractAddress = "0x36aDeb899aaCb4d58079e3aFf34C33b50897eC9E";
-const parentNodeAddress = "0xd136A41Cdb7deBCa065A313Eab6D83B1d9f78B81";
+const contractAddress = process.env.CONTRACT_ADDRESS;
+const parentNodeAddress = process.env.NODE1_ADDRESS;
+const secretKey = process.env.SECRET_KEY;
 async function proposeAndStoreApprovedSealer(req, res) {
   console.log("Request:", req.body);
   const sealerAddressToApprove = req.body.sealerAddressToApprove;
@@ -34,10 +35,11 @@ async function proposeAndStoreApprovedSealer(req, res) {
         console.log("The proposal time has not started yet.");
         return;
       }
+      const decryptedSealerAddress = CryptoJS.AES.decrypt(defaultNode.address, secretKey).toString(CryptoJS.enc.Utf8);
 
       // Check if the sealer is authorized to propose
       const isAuthorized = await contract.methods
-        .nodes(defaultNode.address)
+        .nodes(decryptedSealerAddress)
         .call();
       if (!isAuthorized.canPropose) {
         console.log("The sealer is not authorized to propose.");
@@ -91,10 +93,15 @@ async function proposeAndStoreApprovedSealer(req, res) {
       console.log(
         `${sealerAddressToApprove} added by Parent node in the blockchain!`
       );
+
+       
+      // Encrypt the sealer address before storing it
+      const encryptedSealerAddress = CryptoJS.AES.encrypt(sealerAddressToApprove, secretKey).toString();
+
       await connectToMongoDB();
       // Add the new node to MongoDB
       const newSealer = new Sealer({
-        address: sealerAddressToApprove,
+        address: encryptedSealerAddress,
         approved: true,
       });
 
@@ -103,7 +110,7 @@ async function proposeAndStoreApprovedSealer(req, res) {
 
       // Add the new node as a default node
       const defaultNode = new DefaultNode({
-        address: sealerAddressToApprove,
+        address: encryptedSealerAddress,
         nodeUrl: sealerNodeUrl,
       });
 

@@ -70,5 +70,5 @@ module.exports = {
   connectToMongoDB,
   Sealer,
   DefaultNode,
-  nodestoitem
+  nodetoitem
 };
