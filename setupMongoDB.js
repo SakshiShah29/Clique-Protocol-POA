@@ -13,23 +13,16 @@ async function connectToMongoDB() {
   }
 }
 
-//Schema
-const sealerSchema = new mongoose.Schema({
-  address: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  approved: {
-    type: Boolean,
-    default: false,
-  },
-});
-
-const Sealer = mongoose.model("Sealer", sealerSchema);
-
 // Default Node Schema
-const defaultNodeSchema = new mongoose.Schema({
+const NodeSchema = new mongoose.Schema({
+  nodeId: {
+    type: Number,
+    required: true,
+  },
+  nodelevel: {
+    type: Number,
+    required: true,
+  },
   address: {
     type: String,
     required: true,
@@ -41,9 +34,28 @@ const defaultNodeSchema = new mongoose.Schema({
   },
 });
 
-const DefaultNode = mongoose.model("DefaultNode", defaultNodeSchema);
+const NodeSchemaFordiffLevels = mongoose.model("nodesAtDiffLevels", NodeSchema);
 
-// Define a schema for items
+//level 3 addresses schema:
+const level3address = new mongoose.Schema({
+  nodeId: {
+    type: Number,
+    required: true,
+  },
+  nodelevel: {
+    type: Number,
+    required: true,
+  },
+  address: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+});
+
+const level3Addresses = mongoose.model("Level3Addresses", level3address);
+
+// Define a schema for items (remains the same)
 const itemSchema = new mongoose.Schema({
   itemId: {
     type: Number,
@@ -55,20 +67,21 @@ const itemSchema = new mongoose.Schema({
   },
 });
 
-// Define a schema for nodes
-const nodestoitem = new mongoose.Schema({
-  address: {
-    type: String,
+// Define a schema for nodes to store items (remains the same)
+const nodeToItemSchema = new mongoose.Schema({
+  nodeId: {
+    type: Number,
     required: true,
     unique: true,
   },
   items: [itemSchema], // Embed the item schema as an array within the node schema
 });
 
-const nodetoitem = mongoose.model("AddresstoItem", nodestoitem);
+const NodeToItem = mongoose.model("NodeToItem", nodeToItemSchema);
+
 module.exports = {
   connectToMongoDB,
-  Sealer,
-  DefaultNode,
-  nodetoitem
+  NodeSchemaFordiffLevels,
+  NodeToItem,
+  level3Addresses,
 };

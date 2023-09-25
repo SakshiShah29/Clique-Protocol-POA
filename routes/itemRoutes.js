@@ -1,13 +1,11 @@
 // routes/itemRoutes.js
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const itemController = require('../controllers/itemController');
+const itemController = require("../controllers/itemController");
 
 // Define a route for adding items
-router.post('/add', itemController.addItems);
+router.post("/add", itemController.addItems);
 
-router.get('/:itemId', itemController.readItemById);
+router.get("/:itemId", itemController.readItemById);
 
 module.exports = router;
-
-
